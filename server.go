@@ -11,20 +11,24 @@ import (
 
 type server struct {
 	production  bool
-	Server      *http.Server
+	server      *http.Server
 	Handler     *mux.Router
-	CertManager *autocert.Manager
+	certManager *autocert.Manager
+	Config struct {
+		KeyFile string
+		CertFile string
+	}
 }
 
 var s server
 
 func init() {
-	s.CertManager = &autocert.Manager{
+	s.certManager = &autocert.Manager{
 		Prompt:          autocert.AcceptTOS,
 		Cache:           autocert.DirCache("certs"),
 	}
 	s.Handler = mux.NewRouter()
-	s.Server = &http.Server{
+	s.server = &http.Server{
 		Addr:    ":443",
 		Handler: http.TimeoutHandler(caselessMatcher(s.Handler), time.Second*5, ""),
 		TLSConfig:         &tls.Config{
@@ -54,18 +58,18 @@ func New(production bool) *server {
 }
 
 func (s *server) ListenAndServe() error {
-	return http.ListenAndServe(":80", s.CertManager.HTTPHandler(s.Handler))
+	return http.ListenAndServe(":80", s.certManager.HTTPHandler(s.Handler))
 }
 
 func (s *server) ListenAndServeTLS() error {
 	var certFile, keyFile string
 	if s.production {
-		s.Server.Handler = s.CertManager.HTTPHandler(s.Server.Handler)
+		s.server.Handler = s.certManager.HTTPHandler(s.server.Handler)
 	} else {
-		certFile = "_certs/localhost.pem"
-		keyFile = "_certs/localhost-key.pem"
+		certFile = s.Config.CertFile
+		keyFile = s.Config.KeyFile
 	}
-	return s.Server.ListenAndServeTLS(certFile, keyFile)
+	return s.server.ListenAndServeTLS(certFile, keyFile)
 }
 
 func caselessMatcher(next http.Handler) http.Handler {

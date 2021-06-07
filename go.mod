@@ -1,4 +1,4 @@
-module dhsspares/http_server
+module github.com/undamaged18/http_server
 
 go 1.16
 
